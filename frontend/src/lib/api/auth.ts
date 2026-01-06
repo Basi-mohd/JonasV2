@@ -21,6 +21,7 @@ export interface User {
   id: number
   email: string
   username: string
+  level?: "beginner" | "intermediate" | "advanced" | null
   is_active: boolean
   is_superuser: boolean
   created_at: string

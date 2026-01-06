@@ -1,44 +1,69 @@
-import { Header } from "@/components/layout/header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BookOpen } from "lucide-react"
+"use client"
+
+import { useState, useEffect } from "react"
+import { LevelSelection } from "@/components/onboarding/level-selection"
+import { ChatSidebar } from "@/components/learn/chat-sidebar"
+import { LearnChatInterface } from "@/components/learn/learn-chat-interface"
+import { useAuth } from "@/lib/providers/auth-provider"
+import { useRouter } from "next/navigation"
 
 export default function LearnPage() {
-  return (
-    <div className="min-h-screen">
-      <Header />
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold">Start Learning German</h1>
-            <p className="text-lg text-muted-foreground">
-              Choose a topic and let AI generate a personalized story for you
-            </p>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Learning Dashboard
-              </CardTitle>
-              <CardDescription>
-                Your personalized German learning experience starts here
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                This is where the learning interface will be built. Features coming soon:
-              </p>
-              <ul className="mt-4 space-y-2 list-disc list-inside text-muted-foreground">
-                <li>AI-generated stories based on your interests</li>
-                <li>Interactive chatbot for learning</li>
-                <li>Vocabulary lists and spaced repetition</li>
-                <li>Progress tracking</li>
-              </ul>
-            </CardContent>
-          </Card>
+  const { user, isLoading: authLoading } = useAuth()
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isChecking, setIsChecking] = useState(true)
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.push("/")
+        return
+      }
+      setShowOnboarding(!user.level)
+      setIsChecking(false)
+    }
+  }, [user, authLoading, router])
+
+  const handleNewSession = () => {
+    setCurrentSessionId(undefined)
+  }
+
+  const handleSelectSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId)
+  }
+
+  if (authLoading || isChecking) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </main>
+      </div>
+    )
+  }
+
+  if (showOnboarding) {
+    return (
+      <div className="h-screen">
+        <LevelSelection onComplete={() => setShowOnboarding(false)} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 flex overflow-hidden bg-background">
+      <div className="w-64 flex-shrink-0 border-r border-sidebar-border">
+        <ChatSidebar
+          currentSessionId={currentSessionId}
+          onNewSession={handleNewSession}
+          onSelectSession={handleSelectSession}
+        />
+      </div>
+      <div className="flex-1 flex flex-col min-w-0">
+        <LearnChatInterface sessionId={currentSessionId} />
+      </div>
     </div>
   )
 }
