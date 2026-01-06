@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional
+from app.models.user import UserLevel
 
 
 class UserBase(BaseModel):
@@ -19,12 +20,17 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    level: Optional[UserLevel] = None
     is_active: bool
     is_superuser: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserLevelUpdate(BaseModel):
+    level: UserLevel
 
 
 class Token(BaseModel):
