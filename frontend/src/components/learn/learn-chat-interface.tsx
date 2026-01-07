@@ -9,6 +9,7 @@ import { Send, Bot, User, BookPlus, X } from "lucide-react"
 import { useAuth } from "@/lib/providers/auth-provider"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/lib/api/client"
+import { LessonInterface } from "./lesson-interface"
 
 interface Message {
   id: string
@@ -21,11 +22,21 @@ interface LearnChatInterfaceProps {
   sessionId?: string
 }
 
+interface LessonData {
+  lessonId: string
+  story: string
+  questions: string[]
+  translation: string
+  grammarNotes: string
+}
+
 export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
+  const [lessonData, setLessonData] = useState<LessonData | null>(null)
+  const [showChat, setShowChat] = useState(false)
   const [tooltipState, setTooltipState] = useState<{
     messageId: string
     position: { x: number; y: number }
@@ -192,19 +203,9 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
 
   const handleTopicSelect = async (message: string) => {
     setShowWelcome(false)
+    setIsLoading(true)
     
     const topic = message.replace(/^Create (an? |a )?/, "").replace(/ story$/i, "").trim()
-    
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: message,
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
 
     try {
       const level = (user?.level || "beginner") as "beginner" | "intermediate" | "advanced"
@@ -222,42 +223,79 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
         topic,
       })
 
-      const storyMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response.story,
-        timestamp: new Date(),
-      }
-
-      const translationMessage: Message = {
-        id: (Date.now() + 2).toString(),
-        role: "assistant",
-        content: `Translation:\n\n${response.explanation.translation}\n\nGrammar Notes:\n\n${response.explanation.grammar_notes}`,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, storyMessage, translationMessage])
+      setLessonData({
+        lessonId: response.lesson_id,
+        story: response.story,
+        questions: response.questions,
+        translation: response.explanation.translation,
+        grammarNotes: response.explanation.grammar_notes,
+      })
     } catch (error) {
       console.error("Error starting lesson:", error)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Sorry, I encountered an error while creating your story. Please try again.",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      setShowWelcome(true)
     } finally {
       setIsLoading(false)
     }
   }
 
-  return (
-    <div className="flex flex-col h-full bg-background">
+  const handleSubmitAnswers = async (answers: string[]): Promise<string[]> => {
+    if (!lessonData) return []
 
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="max-w-3xl mx-auto p-6 space-y-6">
-            {showWelcome && messages.length === 0 ? (
+    const response = await api.post<{ feedback: string[] }>(
+      `/lesson/${lessonData.lessonId}/answer`,
+      { answers }
+    )
+
+    return response.feedback
+  }
+
+  const handleLessonComplete = () => {
+    setShowChat(true)
+    
+    const welcomeMessage: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: "Great job completing the lesson! Feel free to ask me any questions about the story or German language in general.",
+      timestamp: new Date(),
+    }
+    setMessages([welcomeMessage])
+  }
+
+  if (lessonData && !showChat) {
+    return (
+      <LessonInterface
+        story={lessonData.story}
+        questions={lessonData.questions}
+        translation={lessonData.translation}
+        grammarNotes={lessonData.grammarNotes}
+        lessonId={lessonData.lessonId}
+        onSubmitAnswers={handleSubmitAnswers}
+        onLessonComplete={handleLessonComplete}
+      />
+    )
+  }
+
+  return (
+    <div className={`flex h-full bg-background ${showChat ? "flex-row" : "flex-col"}`}>
+      {showChat && lessonData && (
+        <div className="w-1/2 border-r">
+          <LessonInterface
+            story={lessonData.story}
+            questions={lessonData.questions}
+            translation={lessonData.translation}
+            grammarNotes={lessonData.grammarNotes}
+            lessonId={lessonData.lessonId}
+            onSubmitAnswers={handleSubmitAnswers}
+            onLessonComplete={() => {}}
+          />
+        </div>
+      )}
+
+      <div className={`flex flex-col h-full bg-background ${showChat ? "w-1/2" : "w-full"}`}>
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="max-w-3xl mx-auto p-6 space-y-6">
+              {showWelcome && messages.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -415,32 +453,33 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-
-      <div className="border-t bg-background">
-        <div className="max-w-3xl mx-auto p-3.5">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message here..."
-                disabled={isLoading}
-                className="min-h-[52px] resize-none rounded-xl"
-              />
+              )}
             </div>
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              size="icon"
-              className="h-[52px] w-[52px] bg-primary hover:bg-primary/90 rounded-xl"
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+          </ScrollArea>
+        </div>
+
+        <div className="border-t bg-background">
+          <div className="max-w-3xl mx-auto p-3.5">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message here..."
+                  disabled={isLoading}
+                  className="min-h-[52px] resize-none rounded-xl"
+                />
+              </div>
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                size="icon"
+                className="h-[52px] w-[52px] bg-primary hover:bg-primary/90 rounded-xl"
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
