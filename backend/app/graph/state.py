@@ -13,5 +13,6 @@ class State(TypedDict):
     questions: List[str]
     student_answers: List[str] 
     feedback: List[str]
-    explanation: dict
+    grammar: str
+    translation : str
     

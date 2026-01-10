@@ -5,7 +5,8 @@ class LessonStartResponse(BaseModel):
     lesson_id: str
     story: str
     questions: List[str]
-    explanation: dict
+    grammar : str
+    translation : str
 
 class FeedbackResponse(BaseModel):
     feedback: List[str]

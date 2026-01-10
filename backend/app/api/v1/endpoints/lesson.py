@@ -27,7 +27,8 @@ def start_lesson(req: StartLessonRequest):
         "questions": [],
         "student_answers": [],
         "feedback": [],
-        "explanation": {},
+        "translation":{},
+        "grammar":""
     }
 
     result = graph.invoke(initial_state)
@@ -38,7 +39,8 @@ def start_lesson(req: StartLessonRequest):
         "lesson_id": lesson_id,
         "story": result["story"],
         "questions": result["questions"],
-        "explanation": result["explanation"],
+        "grammar": result["grammar"],
+        "translation" : result["translation"]
     }
 
 @router.post("/{lesson_id}/answer", response_model=FeedbackResponse)
