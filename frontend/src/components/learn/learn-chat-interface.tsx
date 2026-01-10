@@ -11,6 +11,22 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/lib/api/client"
 import { LessonInterface } from "./lesson-interface"
 
+const USE_MOCK_API = false
+
+const MOCK_LESSON_RESPONSE = {
+  lesson_id: "e10f08bc-854b-48f4-a4dc-2a2fa72a593e",
+  story: "Als ich im Sommer auf den Bergen unterwegs war, hatte ich das Gefühl, wie ein Schmetterling durch einen Wäldchen flatternd. Die Berge waren so majestätisch und tief in die Lüfte gerückt, dass es mich immer wieder begeisterte, sie zu erkunden. Ich wanderte entlang des Bergpfades und hörte den Geräuschen der Natur nach: der lauten Donau, das leisere Flattern von Wind über den Felsen und die leiseren Rufe anderer Wanderer. Die Luft war frisch und klar, und ich spürte die Kraft der Berge in mir. Als ich an einem Wasserfall vorbeiging, hatte ich das Gefühl, dass ich durch ein magisches Portal geführt wurde – es schien, als hätte ich den Himmel auf mich zukommen lassen. Ich war so glücklich und voller Energie, dass ich nicht daran dachte, zu Heimreise. Stattdessen entschied ich, die Berge weiter zu erkunden und mir ihre Geheimnisse anzuschauen.",
+  questions: [
+    "Was passiert, wenn man durch ein magisches Portal auf den Berg führt?",
+    "Welche Gefühle empfand der Schüler, als er an einem Wasserfall vorbeiging?",
+    "Warum empfand der Schüler das Gefühl, durch das Portal geführt zu werden?",
+    "Gibt es spezielle Wahrnehmungen, die man bei solchen Naturerlebnissen hat?",
+    "Welche Details des Ortes und seiner Umgebung hebt der Schüler besonders hervor?",
+  ],
+  grammar: "In German sentences, the subject usually comes first (e.g., 'Ich' in 'Ich bin begeistert'). Adjectives typically follow the noun they modify (e.g., 'wilde Berge' for 'mountains'). Verbs often come last (e.g., 'wanderte' after 'am Bergpfad und...').",
+  translation: "when I was traveling in the summer on hills, I felt like a butterfly flitting through a meadow. The mountains were so majestic and deep into the sky that it always thrilled me to explore them. I walked along the mountain path and heard the sounds of nature: the loud Donau, the gentle fluttering of wind over rocks, and the softer calls of other hikers. The air was fresh and clear, and I felt the power of the mountains in me. When I reached a waterfall, I felt like I had been transported through a magical portal - it seemed as if I had let heaven fall upon me. I was so happy and full of energy that I didn't even think about going home. Instead, I decided to continue exploring the mountains and looking at their secrets.",
+}
+
 interface Message {
   id: string
   role: "user" | "assistant"
@@ -201,6 +217,17 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
     return `Translation of "${word}"`
   }
 
+  const mockApiCall = async (): Promise<{
+    lesson_id: string
+    story: string
+    questions: string[]
+    grammar: string
+    translation: string
+  }> => {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    return MOCK_LESSON_RESPONSE
+  }
+
   const handleTopicSelect = async (message: string) => {
     setShowWelcome(false)
     setIsLoading(true)
@@ -208,27 +235,36 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
     const topic = message.replace(/^Create (an? |a )?/, "").replace(/ story$/i, "").trim()
 
     try {
-      const level = (user?.level || "beginner") as "beginner" | "intermediate" | "advanced"
-      
-      const response = await api.post<{
+      let response: {
         lesson_id: string
         story: string
         questions: string[]
-        explanation: {
+        grammar: string
+        translation: string
+      }
+
+      if (USE_MOCK_API) {
+        response = await mockApiCall()
+      } else {
+        const level = (user?.level || "beginner") as "beginner" | "intermediate" | "advanced"
+        response = await api.post<{
+          lesson_id: string
+          story: string
+          questions: string[]
+          grammar: string
           translation: string
-          grammar_notes: string
-        }
-      }>("/lesson/start", {
-        level,
-        topic,
-      })
+        }>("/lesson/start", {
+          level: level,
+          topic: topic,
+        })
+      }
 
       setLessonData({
         lessonId: response.lesson_id,
         story: response.story,
         questions: response.questions,
-        translation: response.explanation.translation,
-        grammarNotes: response.explanation.grammar_notes,
+        translation: response.translation,
+        grammarNotes: response.grammar,
       })
     } catch (error) {
       console.error("Error starting lesson:", error)
@@ -263,22 +299,24 @@ export function LearnChatInterface({ sessionId }: LearnChatInterfaceProps) {
 
   if (lessonData && !showChat) {
     return (
-      <LessonInterface
-        story={lessonData.story}
-        questions={lessonData.questions}
-        translation={lessonData.translation}
-        grammarNotes={lessonData.grammarNotes}
-        lessonId={lessonData.lessonId}
-        onSubmitAnswers={handleSubmitAnswers}
-        onLessonComplete={handleLessonComplete}
-      />
+      <div className="h-full">
+        <LessonInterface
+          story={lessonData.story}
+          questions={lessonData.questions}
+          translation={lessonData.translation}
+          grammarNotes={lessonData.grammarNotes}
+          lessonId={lessonData.lessonId}
+          onSubmitAnswers={handleSubmitAnswers}
+          onLessonComplete={handleLessonComplete}
+        />
+      </div>
     )
   }
 
   return (
     <div className={`flex h-full bg-background ${showChat ? "flex-row" : "flex-col"}`}>
       {showChat && lessonData && (
-        <div className="w-1/2 border-r">
+        <div className="w-1/2 border-r h-full">
           <LessonInterface
             story={lessonData.story}
             questions={lessonData.questions}
